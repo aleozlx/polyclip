@@ -6,8 +6,13 @@ struct Vertex2D { T x, y; };
 typedef Vertex2D<float> Vertex2Df32;
 typedef std::list<Vertex2Df32> Polygon;
 
+inline float Cross(const Vertex2Df32 &a, const Vertex2Df32 &b) {
+    return a.x * b.y - a.y * b.x;
+}
+
 float CrossEdge(const Vertex2Df32 &p1, const Vertex2Df32 & q0, const Vertex2Df32 & q1) {
-    return 0;
+    Vertex2Df32 a{q0.x-q1.x, q0.y-q1.y}, b{p1.x-q1.x, p1.y-q1.y};
+    return Cross(a, b);
 }
 
 Vertex2Df32 Intersect(const Vertex2Df32 &p0, const Vertex2Df32 & p1, const Vertex2Df32 & q0, const Vertex2Df32 & q1) {
@@ -28,9 +33,8 @@ Polygon SutherlandClipping(const Polygon &polygon, const Polygon &clipper) {
                     pout.push_back(i);
                 pout.push_back(*p1);
             }
-            else if (CrossEdge(*p0, *c0, *c1)<0) {
+            else if (CrossEdge(*p0, *c0, *c1)<0)
                 pout.push_back(i);
-            }
         }
     }
     return pout;
