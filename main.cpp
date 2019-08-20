@@ -8,9 +8,8 @@ typedef std::list<Vertex2Df32> Polygon;
 
 void PrintPolygon(const Polygon &polygon) {
     std::cout<<"Polygon ";
-    for(auto const &p: polygon) {
+    for(auto const &p: polygon)
         std::cout<<p.x<<","<<p.y<<"  ";
-    }
     std::cout<<std::endl;
 }
 
