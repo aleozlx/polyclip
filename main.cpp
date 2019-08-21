@@ -4,8 +4,11 @@
 
 #define Cross2D(ax, ay, bx, by) ((ax) * (by) - (ay) * (bx))
 
-template <typename T>
-struct Edge;
+// template <typename T>
+// struct Edge;
+
+template<typename T>
+struct Polygon;
 
 template<typename T>
 struct BoxEdge {
@@ -48,11 +51,11 @@ struct Vertex2D {
         return (q0-q1).cross(*this-q1);
     }
 
-    T cross(Edge<T> const &edge) const {
+    T cross(typename Polygon<T>::Edge const &edge) const {
         return (edge.p0-edge.p1).cross(*this-edge.p1);
     }
 
-    bool left_of(Edge<T> const &edge) const {
+    bool left_of(typename Polygon<T>::Edge const &edge) const {
         return cross(edge)<0;
     }
 
@@ -66,51 +69,52 @@ struct Vertex2D {
     }
 };
 
-template <typename T>
-struct Edge {
-    Vertex2D<T> p0, p1;
-
-    static Vertex2D<T> intersect(Vertex2D<T> const &p0, Vertex2D<T> const &p1, Vertex2D<T> const &q0, Vertex2D<T> const &q1) {
-        T dp = p0.cross(p1), dq = q0.cross(q1),
-            x = Cross2D(dp, dq, p0.x-p1.x, q0.x-q1.x),
-            y = Cross2D(dp, dq, p0.y-p1.y, q0.y-q1.y),
-            n = (p0-p1).cross(q0-q1);
-        return {x/n, y/n};
-    }
-
-    Vertex2D<T> intersect(Edge<T> const &edge) {
-        return intersect(this->p0, this->p1, edge.p0, edge.p1);
-    }
-
-    Vertex2D<T> intersect(BoxEdge<T> const &edge) {
-        Vertex2D<T> d = p1-p0;
-        switch(edge.side) {
-            case BoxEdge<T>::Top:
-            case BoxEdge<T>::Bottom:
-                return {p0.x + ((edge.y - p0.y) / d.y)*d.x, edge.y};
-            case BoxEdge<T>::Left:
-            case BoxEdge<T>::Right:
-                return {edge.x, p0.y + ((edge.x - p0.x) / d.x)*d.y};
-        }
-    }
-};
-
 template<typename T>
-using Polygon = std::list<Vertex2D<T>>;
+struct Polygon {
+    std::list<Vertex2D<T>> data;
+
+    struct Edge {
+        Vertex2D<T> p0, p1;
+
+        static Vertex2D<T> intersect(Vertex2D<T> const &p0, Vertex2D<T> const &p1, Vertex2D<T> const &q0, Vertex2D<T> const &q1) {
+            T dp = p0.cross(p1), dq = q0.cross(q1),
+                x = Cross2D(dp, dq, p0.x-p1.x, q0.x-q1.x),
+                y = Cross2D(dp, dq, p0.y-p1.y, q0.y-q1.y),
+                n = (p0-p1).cross(q0-q1);
+            return {x/n, y/n};
+        }
+
+        Vertex2D<T> intersect(typename Polygon<T>::Edge const &edge) {
+            return intersect(this->p0, this->p1, edge.p0, edge.p1);
+        }
+
+        Vertex2D<T> intersect(BoxEdge<T> const &edge) {
+            Vertex2D<T> d = p1-p0;
+            switch(edge.side) {
+                case BoxEdge<T>::Top:
+                case BoxEdge<T>::Bottom:
+                    return {p0.x + ((edge.y - p0.y) / d.y)*d.x, edge.y};
+                case BoxEdge<T>::Left:
+                case BoxEdge<T>::Right:
+                    return {edge.x, p0.y + ((edge.x - p0.x) / d.x)*d.y};
+            }
+        }
+    };
+};
 
 template<typename T>
 void printPolygon(const Polygon<T> &polygon) {
     std::cout<<"Polygon ";
-    for(auto const &p: polygon)
+    for(auto const &p: polygon.data)
         std::cout<<p.x<<","<<p.y<<"  ";
     std::cout<<std::endl;
 }
 
 template<typename T>
-Clipper<Edge<T>> cvtPolygonToClipper(const Polygon<T> &clipper) {
-    Clipper<Edge<T>> ret;
-    for(auto c1 = clipper.begin(); c1!=clipper.end(); ++c1) {
-        auto c0 = std::prev(c1 == clipper.begin()?clipper.end():c1);
+Clipper<typename Polygon<T>::Edge> cvtPolygonToClipper(const Polygon<T> &clipper) {
+    Clipper<typename Polygon<T>::Edge> ret;
+    for(auto c1 = clipper.data.begin(); c1!=clipper.data.end(); ++c1) {
+        auto c0 = std::prev(c1 == clipper.data.begin()?clipper.data.end():c1);
         ret.push_back({*c0, *c1});
     }
     return ret;
@@ -118,14 +122,14 @@ Clipper<Edge<T>> cvtPolygonToClipper(const Polygon<T> &clipper) {
 
 template<typename T, typename C>
 Polygon<T> SutherlandClipping(Polygon<T> const &polygon, C const &clipper) {
-    Polygon<T> pout = polygon;
+    auto pout = polygon.data;
     for(auto clipper_edge: clipper) {
-        Polygon<T> pin = pout;
+        auto pin = pout;
         // printPolygon(pin);
         pout.clear();
         for(auto p1 = pin.begin(); p1!=pin.end(); ++p1) {
             auto p0 = std::prev(p1 == pin.begin()?pin.end():p1);
-            Edge<T> edge = {*p0, *p1};
+            typename Polygon<T>::Edge edge = {*p0, *p1};
             if (p1->left_of(clipper_edge)) {
                 if (!(p0->left_of(clipper_edge)))
                     pout.push_back(edge.intersect(clipper_edge));
@@ -135,13 +139,13 @@ Polygon<T> SutherlandClipping(Polygon<T> const &polygon, C const &clipper) {
                 pout.push_back(edge.intersect(clipper_edge));
         }
     }
-    return pout;
+    return {.data = pout};
 }
 
 int main(int, char const **) {
     Box<float> box = {0,0,2.5,2.5};
-    Polygon<float> poly1 = {{1,2},{2,1},{4,1},{4,2},{3,3}},
-        poly2 = {{0,0},{2.5,0},{2.5,2.5},{0,2.5}},
+    Polygon<float> poly1 = {.data = {{1,2},{2,1},{4,1},{4,2},{3,3}}},
+        poly2 = {.data = {{0,0},{2.5,0},{2.5,2.5},{0,2.5}}},
         output1 = SutherlandClipping(poly1, cvtPolygonToClipper(poly2)),
         output2 = SutherlandClipping(poly1, box.asClipper());
     printPolygon(output1);
