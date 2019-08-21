@@ -13,11 +13,14 @@ struct BoxEdge {
     union { T x; T y; };
 };
 
+template<typename E>
+using Clipper = std::list<E>;
+
 template<typename T>
 struct Box {
     T xmin, ymin, xmax, ymax;
 
-    std::vector<BoxEdge<T>> GetEdges() const {
+    Clipper<BoxEdge<T>> asClipper() const {
         return {
             { BoxEdge<T>::Left, xmin },
             { BoxEdge<T>::Bottom, ymin },
@@ -96,7 +99,7 @@ template<typename T>
 using Polygon = std::list<Vertex2D<T>>;
 
 template<typename T>
-void PrintPolygon(const Polygon<T> &polygon) {
+void printPolygon(const Polygon<T> &polygon) {
     std::cout<<"Polygon ";
     for(auto const &p: polygon)
         std::cout<<p.x<<","<<p.y<<"  ";
@@ -104,34 +107,21 @@ void PrintPolygon(const Polygon<T> &polygon) {
 }
 
 template<typename T>
-Polygon<T> SutherlandClipping(const Polygon<T> &polygon, const Polygon<T> &clipper) {
-    Polygon<T> pout = polygon;
+Clipper<Edge<T>> cvtPolygonToClipper(const Polygon<T> &clipper) {
+    Clipper<Edge<T>> ret;
     for(auto c1 = clipper.begin(); c1!=clipper.end(); ++c1) {
         auto c0 = std::prev(c1 == clipper.begin()?clipper.end():c1);
-        Edge<T> clipper_edge = {*c0, *c1};
-        Polygon<T> pin = pout;
-        // PrintPolygon(pin);
-        pout.clear();
-        for(auto p1 = pin.begin(); p1!=pin.end(); ++p1) {
-            auto p0 = std::prev(p1 == pin.begin()?pin.end():p1);
-            Edge<T> edge = {*p0, *p1};
-            if (p1->left_of(clipper_edge)) {
-                if (!(p0->left_of(clipper_edge)))
-                    pout.push_back(edge.intersect(clipper_edge));
-                pout.push_back(*p1);
-            }
-            else if (p0->left_of(clipper_edge))
-                pout.push_back(edge.intersect(clipper_edge));
-        }
+        ret.push_back({*c0, *c1});
     }
-    return pout;
+    return ret;
 }
 
-template<typename T>
-Polygon<T> SutherlandClipping(const Polygon<T> &polygon, const Box<T> &clipper) {
+template<typename T, typename C>
+Polygon<T> SutherlandClipping(Polygon<T> const &polygon, C const &clipper) {
     Polygon<T> pout = polygon;
-    for(auto clipper_edge: clipper.GetEdges()) {
+    for(auto clipper_edge: clipper) {
         Polygon<T> pin = pout;
+        // printPolygon(pin);
         pout.clear();
         for(auto p1 = pin.begin(); p1!=pin.end(); ++p1) {
             auto p0 = std::prev(p1 == pin.begin()?pin.end():p1);
@@ -152,9 +142,9 @@ int main(int, char const **) {
     Box<float> box = {0,0,2.5,2.5};
     Polygon<float> poly1 = {{1,2},{2,1},{4,1},{4,2},{3,3}},
         poly2 = {{0,0},{2.5,0},{2.5,2.5},{0,2.5}},
-        output1 = SutherlandClipping(poly1, poly2),
-        output2 = SutherlandClipping(poly1, box);
-    PrintPolygon(output1);
-    PrintPolygon(output2);
+        output1 = SutherlandClipping(poly1, cvtPolygonToClipper(poly2)),
+        output2 = SutherlandClipping(poly1, box.asClipper());
+    printPolygon(output1);
+    printPolygon(output2);
     return 0;
 }
