@@ -134,9 +134,9 @@ P SutherlandClipping(P const &polygon, C const &clipper) {
     for(auto clipper_edge: clipper) {
         auto pin = pout;
         pout.clear();
-        for(auto edge: polygon.GetEdges()) {
+        for(auto edge: P(pin).GetEdges()) {
             if (edge.p1<clipper_edge) {
-                if (!(edge.p0<(clipper_edge)))
+                if (!(edge.p0<clipper_edge))
                     pout.push_back(edge*clipper_edge);
                 pout.push_back(edge.p1);
             }
