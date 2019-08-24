@@ -40,7 +40,6 @@ struct Vertex2D {
         return x*b.y-y*b.x;
     }
 
-    /// a x b = det(a b) = a1 * b2 - a2 * b1
     Vertex2D<T> operator/(T normalizer) const {
         return {x/normalizer, y/normalizer};
     }
